@@ -24,8 +24,15 @@ def rodar_auditoria(lista_urls):
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
     
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    # Caminhos específicos para o ambiente Linux do Streamlit
+    options.binary_location = "/usr/bin/chromium"
+    
+    service = Service("/usr/bin/chromedriver")
+    
+    # Inicia o driver usando o service do sistema
+    driver = webdriver.Chrome(service=service, options=options)  
     
     resultados = []
     progresso = st.progress(0)
@@ -90,3 +97,4 @@ if upload_file is not None:
             file_name="relatorio_seo_final.csv",
             mime="text/csv",
         )
+
