@@ -48,7 +48,7 @@ with col1:
 
 with col2:
     st.title("Verificador de Meta Description")
-    st.write("Ferramenta interna de auditoria para Educação Executiva.")
+    st.write("Ferramenta interna FGV")
 
 st.divider()
 
@@ -142,3 +142,4 @@ if upload_file is not None:
             file_name=f"auditoria_seo_fgv_{int(time.time())}.csv",
             mime="text/csv",
         )
+
