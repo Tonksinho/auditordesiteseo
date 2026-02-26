@@ -2,4 +2,5 @@ streamlit==1.42.0
 pandas
 selenium==4.21.0
 webdriver-manager==4.0.1
+xlsxwriter
 
