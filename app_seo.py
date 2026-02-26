@@ -4,61 +4,73 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager
 import time
 
-# --- CONFIGURAÇÃO DO NAVEGADOR ---
+# --- SETUP DA PÁGINA ---
+st.set_page_config(page_title="Auditor SEO FGV", layout="wide")
+st.title("🔍 Auditor de Meta Tags SEO")
+
+# --- FUNÇÃO DO DRIVER (VERSÃO DIRETA) ---
 def iniciar_driver():
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    options.binary_location = "/usr/bin/chromium" # Caminho do Streamlit Cloud
+    options.add_argument("--disable-gpu")
     
-    service = Service(ChromeDriverManager().install())
+    # IMPORTANTE: Aponta para o Chromium instalado pelo packages.txt
+    options.binary_location = "/usr/bin/chromium"
+    
+    # No Streamlit Cloud, o driver do Chromium fica neste caminho:
+    service = Service("/usr/bin/chromedriver")
+    
     return webdriver.Chrome(service=service, options=options)
 
-st.title("🔍 Verificador de Meta Description")
-
-# --- UPLOAD ---
-arquivo = st.file_uploader("Suba seu arquivo (TXT ou CSV)", type=['csv', 'txt'])
+# --- INTERFACE ---
+arquivo = st.file_uploader("📂 Suba sua lista de URLs (CSV ou TXT)", type=['csv', 'txt'])
 
 if arquivo:
-    # Transforma o arquivo em lista de URLs
+    # Lógica simples de extração de URLs
     if arquivo.name.endswith('.csv'):
-        df_input = pd.read_csv(arquivo)
-        # Pega a primeira coluna do CSV como URL
-        urls = df_input.iloc[:, 0].tolist()
+        df_in = pd.read_csv(arquivo)
+        lista_urls = df_in.iloc[:, 0].tolist() # Pega a primeira coluna
     else:
-        urls = arquivo.read().decode().splitlines()
+        lista_urls = arquivo.read().decode().splitlines()
 
-    if st.button("🚀 Rodar Verificação"):
+    if st.button("🚀 INICIAR AUDITORIA"):
         resultados = []
-        driver = iniciar_driver()
-        barra = st.progress(0)
-        
-        for i, url in enumerate(urls):
-            url = url.strip()
-            if not url.startswith('http'): url = "https://" + url
+        try:
+            with st.spinner("🤖 Iniciando Navegador..."):
+                driver = iniciar_driver()
             
-            try:
-                driver.get(url)
-                time.sleep(2)
+            progresso = st.progress(0)
+            for idx, url in enumerate(lista_urls):
+                url = url.strip()
+                if not url: continue
+                if not url.startswith('http'): url = f"https://{url}"
+                
                 try:
-                    meta = driver.find_element(By.XPATH, "//meta[@name='description']").get_attribute("content")
-                    status = "✅ Tem"
+                    driver.get(url)
+                    time.sleep(2)
+                    try:
+                        meta = driver.find_element(By.XPATH, "//meta[@name='description']").get_attribute("content")
+                        status = "✅ OK"
+                    except:
+                        meta = "Não encontrada"
+                        status = "❌ Sem Tag"
+                    resultados.append({"URL": url, "Status": status, "Descrição": meta})
                 except:
-                    meta = "Vazio/Não existe"
-                    status = "❌ Sem"
-                resultados.append({"URL": url, "Status": status, "Conteúdo": meta})
-            except:
-                resultados.append({"URL": url, "Status": "⚠️ Erro", "Conteúdo": "Erro ao acessar"})
+                    resultados.append({"URL": url, "Status": "⚠️ Erro", "Descrição": "Falha de conexão"})
+                
+                progresso.progress((idx + 1) / len(lista_urls))
             
-            barra.progress((i + 1) / len(urls))
-        
-        driver.quit()
-        
-        # --- RESULTADO ---
-        df_final = pd.DataFrame(resultados)
-        st.dataframe(df_final)
-        st.download_button("📥 Baixar CSV", df_final.to_csv(index=False), "resultado.csv")
+            driver.quit()
+            
+            # Exibição
+            df_res = pd.DataFrame(resultados)
+            st.success("Concluído!")
+            st.dataframe(df_res, use_container_width=True)
+            st.download_button("📥 Baixar CSV", df_res.to_csv(index=False), "auditoria.csv")
+            
+        except Exception as e:
+            st.error(f"Erro no Servidor: {e}")
