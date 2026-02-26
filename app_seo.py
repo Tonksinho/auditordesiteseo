@@ -1,10 +1,21 @@
 # --- LÓGICA DO ROBÔ (Ajustada para Cloud) ---
 def rodar_auditoria(lista_urls):
     options = Options()
-    options.add_argument("--headless") # Roda sem abrir janela (obrigatório no server)
-    options.add_argument("--no-sandbox") # Bypass de segurança do Linux
-    options.add_argument("--disable-dev-shm-usage") # Usa a memória RAM do server de forma correta
-    options.add_argument("--disable-gpu") # Desativa aceleração de hardware
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    
+    # Este caminho é o padrão onde o packages.txt instala o Chromium no Streamlit
+    options.binary_location = "/usr/bin/chromium" 
+    
+    # Identidade visual para o site não bloquear
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=options)
+    
+    # ... resto do seu código de loop ...
     
     # MUITO IMPORTANTE: Define o caminho do Chromium no Linux do Streamlit
     options.binary_location = "/usr/bin/chromium" 
@@ -52,3 +63,4 @@ def rodar_auditoria(lista_urls):
             
     driver.quit()
     return pd.DataFrame(resultados)
+
