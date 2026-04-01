@@ -86,9 +86,10 @@ arquivo = st.file_uploader("📂 Suba sua lista de URLs (CSV ou TXT)", type=['cs
 if arquivo:
     if arquivo.name.endswith('.csv'):
         df_in = pd.read_csv(arquivo)
-        lista_urls = df_in.iloc[:, 0].tolist()
+        lista_urls = [str(u).strip().strip('\r\n') for u in df_in.iloc[:, 0].tolist() if str(u).strip()]
     else:
-        lista_urls = arquivo.read().decode().splitlines()
+        conteudo = arquivo.read().decode('utf-8-sig')  # Remove BOM se houver
+        lista_urls = [u.strip().strip('\r\n') for u in conteudo.splitlines() if u.strip()]
 
     st.write(f"📍 **{len(lista_urls)}** URLs carregadas.")
 
@@ -103,9 +104,9 @@ if arquivo:
             progresso = st.progress(0)
             status_txt = st.empty()
 
+            total_urls = len(lista_urls)
             for idx, url in enumerate(lista_urls):
                 url = url.strip()
-                if not url: continue
                 if not url.startswith('http'): url = f"https://{url}"
 
                 status_txt.markdown(f"🔍 Analisando: `{url}`")
@@ -157,7 +158,7 @@ if arquivo:
                     })
                     urls_com_erro.append((url, "Falha de conexão"))
 
-                progresso.progress((idx + 1) / len(lista_urls))
+                progresso.progress((idx + 1) / total_urls)
 
             driver.quit()
             status_txt.empty()
