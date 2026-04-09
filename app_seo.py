@@ -29,15 +29,33 @@ def iniciar_driver():
     return webdriver.Chrome(service=service, options=options)
 
 
-arquivo = st.file_uploader("📂 Suba a planilha com as URLs (.xlsx)", type=["xlsx"])
+def carregar_urls(arquivo):
+    """Lê URLs de .xlsx ou .txt e retorna uma lista limpa."""
+    nome = arquivo.name.lower()
+
+    if nome.endswith(".txt"):
+        linhas = arquivo.read().decode("utf-8").splitlines()
+        urls = [l.strip() for l in linhas if l.strip()]
+        return urls, None  # sem seleção de coluna necessária
+
+    elif nome.endswith(".xlsx"):
+        df = pd.read_excel(arquivo)
+        return None, df  # retorna df para seleção de coluna
+
+
+arquivo = st.file_uploader("📂 Suba a lista de URLs (.xlsx ou .txt)", type=["xlsx", "txt"])
 
 if arquivo:
-    df_raw = pd.read_excel(arquivo)
-    cols = list(df_raw.columns)
+    urls_list, df_raw = carregar_urls(arquivo)
 
-    st.divider()
-    c_url = st.selectbox("Coluna de URL *", cols, index=0)
-    st.info(f"Total de URLs para verificar: **{len(df_raw)}**")
+    # Se xlsx, pede seleção de coluna
+    if df_raw is not None:
+        st.divider()
+        cols = list(df_raw.columns)
+        c_url = st.selectbox("Coluna de URL *", cols, index=0)
+        urls_list = [str(r).strip() for r in df_raw[c_url] if str(r).strip()]
+
+    st.info(f"Total de URLs para verificar: **{len(urls_list)}**")
 
     if st.button("🚀 INICIAR VERIFICAÇÃO"):
         resultados = []
@@ -46,12 +64,11 @@ if arquivo:
 
         driver = iniciar_driver()
 
-        for idx, row in df_raw.iterrows():
-            url = str(row[c_url]).strip()
+        for idx, url in enumerate(urls_list):
             if not url.startswith("http"):
                 url = "https://" + url
 
-            status_txt.text(f"Verificando ({idx+1}/{len(df_raw)}): {url}")
+            status_txt.text(f"Verificando ({idx+1}/{len(urls_list)}): {url}")
             res = {"URL": url, "Resultado": "", "Meta Description Encontrada": ""}
 
             try:
@@ -69,22 +86,19 @@ if arquivo:
                     res["Meta Description Encontrada"] = conteudo
                 else:
                     res["Resultado"] = "❌ Ausente ou vazia"
-                    res["Meta Description Encontrada"] = ""
 
             except Exception as e:
                 res["Resultado"] = "⚠️ Erro ao acessar"
                 res["Meta Description Encontrada"] = str(e)[:80]
 
             resultados.append(res)
-            progresso.progress((idx + 1) / len(df_raw))
+            progresso.progress((idx + 1) / len(urls_list))
 
         driver.quit()
         status_txt.success("Verificação concluída!")
 
         df_final = pd.DataFrame(resultados)
 
-        # Resumo rápido
-        total = len(df_final)
         ok = len(df_final[df_final["Resultado"] == "✅ Preenchida"])
         nok = len(df_final[df_final["Resultado"] == "❌ Ausente ou vazia"])
         erro = len(df_final[df_final["Resultado"] == "⚠️ Erro ao acessar"])
