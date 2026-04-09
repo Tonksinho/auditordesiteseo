@@ -6,19 +6,17 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 import time
 
-st.set_page_config(page_title="Auditor SEO Flex", layout="centered", page_icon="🔍")
+st.set_page_config(page_title="Auditor SEO", layout="centered", page_icon="🔍")
 
 st.markdown("""
     <style>
     .block-container { padding-top: 2rem; max-width: 700px; }
     h1 { text-align: center; color: #004685; font-size: 24px !important; }
     .stButton>button { width: 100%; background-color: #004685; color: white; height: 3em; }
-    .card-ok { background-color: #f0fff4; border-left: 4px solid #00a854; padding: 10px; margin: 5px 0; border-radius: 4px; font-size: 13px; }
-    .card-erro { background-color: #fff0f0; border-left: 4px solid #cc0000; padding: 10px; margin: 5px 0; border-radius: 4px; font-size: 13px; }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🔍 Auditor de Meta Tags Flexível")
+st.title("🔍 Auditor de Meta Description")
 
 
 def iniciar_driver():
@@ -31,130 +29,77 @@ def iniciar_driver():
     return webdriver.Chrome(service=service, options=options)
 
 
-def normalizar(texto):
-    return str(texto).strip().lower() if texto and str(texto).lower() != "nan" else ""
-
-
-arquivo = st.file_uploader("📂 Suba qualquer planilha Excel (.xlsx)", type=["xlsx"])
+arquivo = st.file_uploader("📂 Suba a planilha com as URLs (.xlsx)", type=["xlsx"])
 
 if arquivo:
     df_raw = pd.read_excel(arquivo)
     cols = list(df_raw.columns)
 
     st.divider()
-    st.subheader("⚙️ Mapeamento de Colunas")
-
-    # --- URL (obrigatório) ---
     c_url = st.selectbox("Coluna de URL *", cols, index=0)
+    st.info(f"Total de URLs para verificar: **{len(df_raw)}**")
 
-    # --- Título (opcional) ---
-    col1, col2 = st.columns([0.15, 0.85])
-    with col1:
-        usar_titulo = st.checkbox("", value=False, key="chk_titulo")
-    with col2:
-        idx_t = next((i for i, c in enumerate(cols) if "tit" in c.lower()), 1 if len(cols) > 1 else 0)
-        c_tit = st.selectbox(
-            "Verificar Título (opcional)",
-            cols,
-            index=idx_t,
-            disabled=not usar_titulo,
-        )
+    if st.button("🚀 INICIAR VERIFICAÇÃO"):
+        resultados = []
+        progresso = st.progress(0)
+        status_txt = st.empty()
 
-    # --- Meta Description (opcional) ---
-    col3, col4 = st.columns([0.15, 0.85])
-    with col3:
-        usar_meta = st.checkbox("", value=True, key="chk_meta")
-    with col4:
-        idx_m = next((i for i, c in enumerate(cols) if "meta" in c.lower() or "desc" in c.lower()), 2 if len(cols) > 2 else 0)
-        c_meta = st.selectbox(
-            "Verificar Meta Description (opcional)",
-            cols,
-            index=idx_m,
-            disabled=not usar_meta,
-        )
+        driver = iniciar_driver()
 
-    if not usar_titulo and not usar_meta:
-        st.warning("Selecione ao menos uma coluna para verificar (Título ou Meta).")
-    else:
-        st.info(f"Total de linhas para processar: **{len(df_raw)}**")
+        for idx, row in df_raw.iterrows():
+            url = str(row[c_url]).strip()
+            if not url.startswith("http"):
+                url = "https://" + url
 
-        if st.button("🚀 INICIAR AUDITORIA"):
-            resultados = []
-            progresso = st.progress(0)
-            status_txt = st.empty()
+            status_txt.text(f"Verificando ({idx+1}/{len(df_raw)}): {url}")
+            res = {"URL": url, "Resultado": "", "Meta Description Encontrada": ""}
 
-            driver = iniciar_driver()
-
-            for idx, row in df_raw.iterrows():
-                url = str(row[c_url]).strip()
-                if not url.startswith("http"):
-                    url = "https://" + url
-
-                status_txt.text(f"Analisando ({idx+1}/{len(df_raw)}): {url}")
-                res = {"URL": url, "Resultado": "", "Detalhes": ""}
+            try:
+                driver.get(url)
+                time.sleep(2)
 
                 try:
-                    driver.get(url)
-                    time.sleep(2)
+                    meta_el = driver.find_element(By.XPATH, "//meta[@name='description']")
+                    conteudo = (meta_el.get_attribute("content") or "").strip()
+                except:
+                    conteudo = ""
 
-                    erros = []
+                if conteudo:
+                    res["Resultado"] = "✅ Preenchida"
+                    res["Meta Description Encontrada"] = conteudo
+                else:
+                    res["Resultado"] = "❌ Ausente ou vazia"
+                    res["Meta Description Encontrada"] = ""
 
-                    # --- Verifica título (se ativado) ---
-                    if usar_titulo:
-                        site_tit = driver.title
-                        if normalizar(site_tit) != normalizar(row[c_tit]):
-                            erros.append(
-                                f"Título diverge | Esperado: '{normalizar(row[c_tit])}' | Encontrado: '{normalizar(site_tit)}'"
-                            )
+            except Exception as e:
+                res["Resultado"] = "⚠️ Erro ao acessar"
+                res["Meta Description Encontrada"] = str(e)[:80]
 
-                    # --- Verifica meta description (se ativado) ---
-                    if usar_meta:
-                        try:
-                            # Busca explicitamente pelo atributo name="description" no HTML
-                            meta_el = driver.find_element(
-                                By.XPATH, "//meta[@name='description']"
-                            )
-                            site_meta = meta_el.get_attribute("content") or ""
-                        except:
-                            site_meta = ""
+            resultados.append(res)
+            progresso.progress((idx + 1) / len(df_raw))
 
-                        meta_esperada = normalizar(row[c_meta])
-                        meta_encontrada = normalizar(site_meta)
+        driver.quit()
+        status_txt.success("Verificação concluída!")
 
-                        if meta_esperada == "":
-                            erros.append("Meta description: valor esperado vazio na planilha")
-                        elif site_meta == "":
-                            erros.append("Meta description: não encontrada na página")
-                        elif meta_esperada != meta_encontrada:
-                            erros.append(
-                                f"Meta diverge | Esperado: '{meta_esperada[:60]}...' | Encontrado: '{meta_encontrada[:60]}...'"
-                            )
+        df_final = pd.DataFrame(resultados)
 
-                    # --- Resultado final ---
-                    if not erros:
-                        res["Resultado"] = "✅ OK"
-                    else:
-                        res["Resultado"] = "❌ Divergente"
-                        res["Detalhes"] = " | ".join(erros)
+        # Resumo rápido
+        total = len(df_final)
+        ok = len(df_final[df_final["Resultado"] == "✅ Preenchida"])
+        nok = len(df_final[df_final["Resultado"] == "❌ Ausente ou vazia"])
+        erro = len(df_final[df_final["Resultado"] == "⚠️ Erro ao acessar"])
 
-                except Exception as e:
-                    res["Resultado"] = "⚠️ Erro"
-                    res["Detalhes"] = str(e)[:80]
+        col1, col2, col3 = st.columns(3)
+        col1.metric("✅ Preenchidas", ok)
+        col2.metric("❌ Ausentes", nok)
+        col3.metric("⚠️ Erros", erro)
 
-                resultados.append(res)
-                progresso.progress((idx + 1) / len(df_raw))
+        st.dataframe(df_final)
 
-            driver.quit()
-            status_txt.success("Auditoria concluída!")
-
-            df_final = pd.DataFrame(resultados)
-            st.dataframe(df_final)
-
-            # Download do resultado
-            csv = df_final.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "⬇️ Baixar resultado CSV",
-                data=csv,
-                file_name="auditoria_seo.csv",
-                mime="text/csv",
-            )
+        csv = df_final.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "⬇️ Baixar resultado CSV",
+            data=csv,
+            file_name="auditoria_meta.csv",
+            mime="text/csv",
+        )
