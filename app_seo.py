@@ -17,7 +17,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- LOGO FGV ---
-st.image("fgv-logo-0.png", width=150)
+col_logo = st.columns([1, 2, 1])
+with col_logo[1]:
+    st.image("fgv-logo-0.png", use_container_width=True)
 
 st.title("🔍 Auditor de Meta Description")
 
