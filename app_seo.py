@@ -16,6 +16,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# --- LOGO FGV ---
+st.image("fgv-logo-0.png", width=150)
+
 st.title("🔍 Auditor de Meta Description")
 
 
@@ -30,17 +33,14 @@ def iniciar_driver():
 
 
 def carregar_urls(arquivo):
-    """Lê URLs de .xlsx ou .txt e retorna uma lista limpa."""
     nome = arquivo.name.lower()
-
     if nome.endswith(".txt"):
         linhas = arquivo.read().decode("utf-8").splitlines()
         urls = [l.strip() for l in linhas if l.strip()]
-        return urls, None  # sem seleção de coluna necessária
-
+        return urls, None
     elif nome.endswith(".xlsx"):
         df = pd.read_excel(arquivo)
-        return None, df  # retorna df para seleção de coluna
+        return None, df
 
 
 arquivo = st.file_uploader("📂 Suba a lista de URLs (.xlsx ou .txt)", type=["xlsx", "txt"])
@@ -48,7 +48,6 @@ arquivo = st.file_uploader("📂 Suba a lista de URLs (.xlsx ou .txt)", type=["x
 if arquivo:
     urls_list, df_raw = carregar_urls(arquivo)
 
-    # Se xlsx, pede seleção de coluna
     if df_raw is not None:
         st.divider()
         cols = list(df_raw.columns)
