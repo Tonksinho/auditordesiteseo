@@ -236,7 +236,7 @@ if arquivo:
     delay_min, delay_max = st.select_slider(
         "⏱ Delay entre requisições (segundos)",
         options=[0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0],
-        value=(1.0, 2.5),
+        value=(1.0, 2.0),
         help="Delay aleatório entre cada requisição. Valores maiores evitam bloqueios.",
     )
 
